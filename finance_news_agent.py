@@ -259,6 +259,117 @@ def cluster_themes(relevant: list[dict], client: anthropic.Anthropic) -> list[di
 # SCHRITT 4 — STRUKTURIERTER JSON-OUTPUT
 # ─────────────────────────────────────────────────────────────────────────────
 
+def build_html(output: dict) -> str:
+    meta = output["meta"]
+    themes = output["top_themes"]
+    articles = output["articles"]
+    entity = output["entity_universe"]
+
+    urgency_color = {"hoch": "#ef4444", "mittel": "#f59e0b", "niedrig": "#22c55e"}
+    action_badge = {
+        "alert":    ("#ef4444", "🔔 Alert"),
+        "watch":    ("#f59e0b", "👀 Watch"),
+        "research": ("#3b82f6", "🔍 Research"),
+        "ignore":   ("#6b7280", "ignore"),
+    }
+    sentiment_icon = {"positiv": "🟢", "negativ": "🔴", "neutral": "⚪"}
+
+    theme_cards = ""
+    for t in themes:
+        color = urgency_color.get(t["urgency"], "#6b7280")
+        theme_cards += f"""
+        <div style="border-left:4px solid {color};padding:12px 16px;background:#1e293b;border-radius:6px">
+          <div style="font-weight:600;font-size:15px">{t["theme"]}</div>
+          <div style="color:#94a3b8;font-size:13px;margin-top:4px">{t["summary"]}</div>
+          <div style="color:{color};font-size:12px;margin-top:6px">{t["urgency"].upper()} · {len(t["article_ids"])} Artikel</div>
+        </div>"""
+
+    article_rows = ""
+    for a in articles:
+        color, label = action_badge.get(a["action_hint"], ("#6b7280", a["action_hint"]))
+        s_icon = sentiment_icon.get(a["sentiment"], "⚪")
+        tickers = ", ".join(a["entities"].get("tickers", [])) or "–"
+        pub = (a["published_at"] or "")[:16].replace("T", " ")
+        article_rows += f"""
+        <tr>
+          <td style="padding:10px 8px;font-size:13px;font-weight:500">{a["title"]}</td>
+          <td style="padding:10px 8px;color:#94a3b8;font-size:12px">{a["source"]}</td>
+          <td style="padding:10px 8px;text-align:center;font-size:14px;font-weight:700;color:{'#ef4444' if a['score']>=8 else '#f59e0b' if a['score']>=6 else '#94a3b8'}">{a["score"]}</td>
+          <td style="padding:10px 8px"><span style="background:{color}22;color:{color};padding:2px 8px;border-radius:12px;font-size:12px">{label}</span></td>
+          <td style="padding:10px 8px;font-size:12px;color:#94a3b8">{a["category"]}</td>
+          <td style="padding:10px 8px;text-align:center">{s_icon}</td>
+          <td style="padding:10px 8px;color:#60a5fa;font-size:12px">{tickers}</td>
+          <td style="padding:10px 8px;color:#64748b;font-size:11px">{pub}</td>
+          <td style="padding:10px 8px"><a href="{a["url"]}" target="_blank" style="color:#60a5fa;font-size:12px">↗</a></td>
+        </tr>"""
+
+    ticker_pills = "".join(
+        f'<span style="background:#1e3a5f;color:#93c5fd;padding:3px 10px;border-radius:12px;font-size:12px">{t}</span> '
+        for t in entity["tickers"]
+    ) or "<span style='color:#64748b'>–</span>"
+
+    generated = meta["generated_at"][:16].replace("T", " ")
+
+    return f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Finance News Agent</title>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0 }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          background: #0f172a; color: #e2e8f0; padding: 32px }}
+  h1 {{ font-size: 22px; font-weight: 700; margin-bottom: 4px }}
+  h2 {{ font-size: 14px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: .08em; color: #64748b; margin-bottom: 12px }}
+  .grid {{ display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 32px }}
+  .card {{ background: #1e293b; border-radius: 10px; padding: 16px }}
+  .card .val {{ font-size: 28px; font-weight: 700 }}
+  .card .lbl {{ font-size: 12px; color: #64748b; margin-top: 4px }}
+  .themes {{ display: grid; grid-template-columns: repeat(auto-fill,minmax(300px,1fr));
+             gap: 12px; margin-bottom: 32px }}
+  table {{ width: 100%; border-collapse: collapse }}
+  tr:hover td {{ background: #1e293b }}
+  th {{ text-align: left; padding: 8px; font-size: 12px; color: #64748b;
+        border-bottom: 1px solid #1e293b; font-weight: 500 }}
+  td {{ border-bottom: 1px solid #0f172a }}
+</style>
+</head>
+<body>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
+  <div>
+    <h1>📈 Finance News Agent</h1>
+    <div style="color:#64748b;font-size:13px;margin-top:4px">Erstellt: {generated} · Modell: {meta["model"]}</div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card"><div class="val">{meta["total_fetched"]}</div><div class="lbl">Artikel abgerufen</div></div>
+  <div class="card"><div class="val" style="color:#22c55e">{meta["total_relevant"]}</div><div class="lbl">Relevant (Score ≥ {meta["threshold"]})</div></div>
+  <div class="card"><div class="val" style="color:#ef4444">{meta["action_summary"]["alert"]}</div><div class="lbl">🔔 Alert</div></div>
+  <div class="card"><div class="val" style="color:#f59e0b">{meta["action_summary"]["watch"]}</div><div class="lbl">👀 Watch</div></div>
+</div>
+
+<h2>Top-Themen</h2>
+<div class="themes">{theme_cards}</div>
+
+<h2 style="margin-bottom:8px">Ticker im Fokus</h2>
+<div style="margin-bottom:28px;display:flex;flex-wrap:wrap;gap:6px">{ticker_pills}</div>
+
+<h2>Alle relevanten Artikel</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Titel</th><th>Quelle</th><th>Score</th><th>Aktion</th>
+      <th>Kategorie</th><th>Sentiment</th><th>Ticker</th><th>Zeit</th><th></th>
+    </tr>
+  </thead>
+  <tbody>{article_rows}</tbody>
+</table>
+</body>
+</html>"""
+
+
 def build_output(relevant: list[dict], themes: list[dict],
                  total_fetched: int, period_from: str, period_to: str,
                  threshold: int) -> dict:
@@ -323,6 +434,8 @@ def main():
                         help=f"Maximales Alter in Stunden (Standard: {MAX_AGE_HOURS})")
     parser.add_argument("--dry-run",   action="store_true",
                         help="Nur Feeds abrufen, kein Claude-API-Aufruf (zum Testen)")
+    parser.add_argument("--html",      default=None,
+                        help="Zusätzlich eine HTML-Übersicht speichern (z.B. output/report.html)")
     args = parser.parse_args()
 
     if not args.dry_run and not API_KEY:
@@ -367,6 +480,15 @@ def main():
         print(f"💾  Gespeichert: {args.output}")
     else:
         print(json.dumps(output, ensure_ascii=False, indent=2))
+
+    if args.html:
+        html_path = args.html
+        os.makedirs(os.path.dirname(html_path) or ".", exist_ok=True)
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(build_html(output))
+        print(f"🌐  HTML-Report: {html_path}")
+        import webbrowser
+        webbrowser.open(html_path)
 
     print(f"\n{'─'*60}")
     print(f"  🔔 Alert:    {output['meta']['action_summary']['alert']} Meldungen")
