@@ -47,7 +47,8 @@ RELEVANCE_THRESHOLD = 6
 SCORE_BATCH_SIZE   = 40
 
 RSS_FEEDS = [
-    {"name": "finanzen.net",       "url": "https://www.finanzen.net/rss/news"},
+    {"name": "Google News Finanzen",  "url": "https://news.google.com/rss/search?q=finanzen+aktien+börse&hl=de&gl=DE&ceid=DE:de"},
+    {"name": "Google News Wirtschaft","url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtUmxHZ0pFUlNnQVAB?hl=de&gl=DE&ceid=DE:de"},
     {"name": "FAZ Wirtschaft",     "url": "https://www.faz.net/rss/aktuell/wirtschaft/"},
     {"name": "FAZ Finanzen",       "url": "https://www.faz.net/rss/aktuell/finanzen/"},
     {"name": "WirtschaftsWoche",   "url": "https://www.wiwo.de/contentexport/feed/rss/schlagzeilen"},
