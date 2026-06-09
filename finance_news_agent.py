@@ -64,6 +64,36 @@ RSS_FEEDS = [
 # SCHRITT 1 — RSS FEEDS ABRUFEN
 # ─────────────────────────────────────────────────────────────────────────────
 
+CUSTOM_URLS_FILE = "custom_urls.txt"
+
+def fetch_custom_urls() -> list[dict]:
+    if not os.path.exists(CUSTOM_URLS_FILE):
+        return []
+    articles = []
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    with open(CUSTOM_URLS_FILE, encoding="utf-8") as f:
+        urls = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+    for url in urls:
+        try:
+            resp = requests.get(url, headers=headers, timeout=10)
+            resp.raise_for_status()
+            # Titel aus <title>-Tag extrahieren
+            title_match = re.search(r"<title[^>]*>(.*?)</title>", resp.text, re.IGNORECASE | re.DOTALL)
+            title = re.sub(r"<[^>]+>", "", title_match.group(1)).strip() if title_match else url
+            articles.append({
+                "id":           str(uuid.uuid4())[:8],
+                "source":       "Eigener Link",
+                "title":        title[:200],
+                "summary":      "",
+                "url":          url,
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            })
+            print(f"  ✓  Eigener Link: {title[:60]}")
+        except Exception as e:
+            print(f"  ⚠  Eigener Link ({url[:50]}): {e}")
+    return articles
+
+
 def fetch_all_feeds(max_age_hours: int) -> list[dict]:
     all_articles = []
     now = datetime.now(timezone.utc)
@@ -284,23 +314,25 @@ def build_html(output: dict) -> str:
           <div style="color:{color};font-size:12px;margin-top:6px">{t["urgency"].upper()} · {len(t["article_ids"])} Artikel</div>
         </div>"""
 
+    sorted_articles = sorted(articles, key=lambda x: -x.get("score", 0))
     article_rows = ""
-    for a in articles:
+    for a in sorted_articles:
         color, label = action_badge.get(a["action_hint"], ("#6b7280", a["action_hint"]))
         s_icon = sentiment_icon.get(a["sentiment"], "⚪")
         tickers = ", ".join(a["entities"].get("tickers", [])) or "–"
         pub = (a["published_at"] or "")[:16].replace("T", " ")
+        score_color = '#ef4444' if a['score'] >= 8 else '#f59e0b' if a['score'] >= 6 else '#94a3b8'
+        url = a["url"] or "#"
         article_rows += f"""
-        <tr>
+        <tr onclick="window.open('{url}','_blank')" style="cursor:pointer" title="Artikel öffnen">
           <td style="padding:10px 8px;font-size:13px;font-weight:500">{a["title"]}</td>
           <td style="padding:10px 8px;color:#94a3b8;font-size:12px">{a["source"]}</td>
-          <td style="padding:10px 8px;text-align:center;font-size:14px;font-weight:700;color:{'#ef4444' if a['score']>=8 else '#f59e0b' if a['score']>=6 else '#94a3b8'}">{a["score"]}</td>
+          <td style="padding:10px 8px;text-align:center;font-size:14px;font-weight:700;color:{score_color}">{a["score"]}</td>
           <td style="padding:10px 8px"><span style="background:{color}22;color:{color};padding:2px 8px;border-radius:12px;font-size:12px">{label}</span></td>
           <td style="padding:10px 8px;font-size:12px;color:#94a3b8">{a["category"]}</td>
           <td style="padding:10px 8px;text-align:center">{s_icon}</td>
           <td style="padding:10px 8px;color:#60a5fa;font-size:12px">{tickers}</td>
           <td style="padding:10px 8px;color:#64748b;font-size:11px">{pub}</td>
-          <td style="padding:10px 8px"><a href="{a["url"]}" target="_blank" style="color:#60a5fa;font-size:12px">↗</a></td>
         </tr>"""
 
     ticker_pills = "".join(
@@ -447,6 +479,10 @@ def main():
 
     print(f"\n🔄  Lese {len(RSS_FEEDS)} RSS-Feeds …")
     articles = fetch_all_feeds(args.max_age)
+    custom = fetch_custom_urls()
+    if custom:
+        print(f"  ✚  {len(custom)} eigene Links aus {CUSTOM_URLS_FILE}")
+        articles = custom + articles
     print(f"    → {len(articles)} Artikel nach Deduplizierung\n")
 
     if args.dry_run:
