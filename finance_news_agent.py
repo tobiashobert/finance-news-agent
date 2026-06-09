@@ -47,7 +47,8 @@ RELEVANCE_THRESHOLD = 6
 SCORE_BATCH_SIZE   = 40
 
 RSS_FEEDS = [
-    {"name": "finanzen.net",       "url": "https://www.finanzen.net/rss/news"},
+    {"name": "Google News Finanzen",  "url": "https://news.google.com/rss/search?q=finanzen+aktien+börse&hl=de&gl=DE&ceid=DE:de"},
+    {"name": "Google News Wirtschaft","url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtUmxHZ0pFUlNnQVAB?hl=de&gl=DE&ceid=DE:de"},
     {"name": "FAZ Wirtschaft",     "url": "https://www.faz.net/rss/aktuell/wirtschaft/"},
     {"name": "FAZ Finanzen",       "url": "https://www.faz.net/rss/aktuell/finanzen/"},
     {"name": "WirtschaftsWoche",   "url": "https://www.wiwo.de/contentexport/feed/rss/schlagzeilen"},
@@ -320,18 +321,24 @@ def main():
                         help=f"Mindest-Score 1-10 (Standard: {RELEVANCE_THRESHOLD})")
     parser.add_argument("--max-age",   type=int, default=MAX_AGE_HOURS,
                         help=f"Maximales Alter in Stunden (Standard: {MAX_AGE_HOURS})")
+    parser.add_argument("--dry-run",   action="store_true",
+                        help="Nur Feeds abrufen, kein Claude-API-Aufruf (zum Testen)")
     args = parser.parse_args()
 
-    if not API_KEY:
+    if not args.dry_run and not API_KEY:
         print("❌  ANTHROPIC_API_KEY nicht gesetzt.")
         return
 
-    client = anthropic.Anthropic(api_key=API_KEY)
+    client = anthropic.Anthropic(api_key=API_KEY) if not args.dry_run else None
     period_from = datetime.now(timezone.utc).isoformat()
 
     print(f"\n🔄  Lese {len(RSS_FEEDS)} RSS-Feeds …")
     articles = fetch_all_feeds(args.max_age)
     print(f"    → {len(articles)} Artikel nach Deduplizierung\n")
+
+    if args.dry_run:
+        print("🧪  Dry-run: kein API-Aufruf. Feeds erfolgreich abgerufen.")
+        return
 
     print(f"🤖  Scoring & Entity-Extraktion ({MODEL}) …")
     enriched = []
