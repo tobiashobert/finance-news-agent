@@ -64,7 +64,49 @@ RSS_FEEDS = [
 # SCHRITT 1 — RSS FEEDS ABRUFEN
 # ─────────────────────────────────────────────────────────────────────────────
 
-CUSTOM_URLS_FILE = "custom_urls.txt"
+CUSTOM_URLS_FILE  = "custom_urls.txt"
+GITHUB_REPO       = "tobiashobert/finance-news-agent"
+
+
+def fetch_github_issues() -> list[dict]:
+    """Liest offene GitHub Issues aus dem Repo und extrahiert URLs daraus."""
+    token = os.environ.get("GITHUB_TOKEN", "")
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/issues?state=open&per_page=50",
+            headers=headers, timeout=10
+        )
+        resp.raise_for_status()
+        issues = resp.json()
+    except Exception as e:
+        print(f"  ⚠  GitHub Issues: {e}")
+        return []
+
+    articles = []
+    url_pattern = re.compile(r"https?://[^\s\)\]>\"']+")
+    for issue in issues:
+        # Pull Requests überspringen
+        if "pull_request" in issue:
+            continue
+        text = (issue.get("title", "") + " " + (issue.get("body") or ""))
+        urls = url_pattern.findall(text)
+        for url in urls:
+            articles.append({
+                "id":           str(uuid.uuid4())[:8],
+                "source":       f"GitHub Issue #{issue['number']}",
+                "title":        issue.get("title", url)[:200],
+                "summary":      (issue.get("body") or "")[:300],
+                "url":          url,
+                "published_at": issue.get("created_at"),
+            })
+        if urls:
+            print(f"  ✓  GitHub Issue #{issue['number']}: {len(urls)} URL(s)")
+
+    return articles
+
 
 def fetch_custom_urls() -> list[dict]:
     if not os.path.exists(CUSTOM_URLS_FILE):
@@ -483,6 +525,10 @@ def main():
     if custom:
         print(f"  ✚  {len(custom)} eigene Links aus {CUSTOM_URLS_FILE}")
         articles = custom + articles
+    issues = fetch_github_issues()
+    if issues:
+        print(f"  ✚  {len(issues)} URLs aus GitHub Issues")
+        articles = issues + articles
     print(f"    → {len(articles)} Artikel nach Deduplizierung\n")
 
     if args.dry_run:
