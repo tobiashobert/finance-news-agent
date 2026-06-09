@@ -157,18 +157,22 @@ def render_page(message: str = "", message_type: str = "success") -> str:
     # ── Liste 2: RSS News-Seiten ───────────────────────────────────────────────
     feed_rows = ""
     for feed in RSS_FEEDS:
+        from urllib.parse import urlparse as _up
+        base = "{u.scheme}://{u.netloc}".format(u=_up(feed['url']))
         feed_rows += f"""
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
-                    background:#1e293b;border-radius:8px;margin-bottom:8px">
+        <a href="{base}" target="_blank" style="text-decoration:none;display:block;
+                    padding:10px 14px;background:#1e293b;border-radius:8px;
+                    margin-bottom:8px;display:flex;align-items:center;gap:10px;
+                    transition:background .15s" onmouseover="this.style.background='#263548'"
+                    onmouseout="this.style.background='#1e293b'">
           <div style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></div>
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:600">{feed['name']}</div>
-            <a href="{feed['url']}" target="_blank"
-               style="color:#475569;font-size:11px;text-decoration:none;word-break:break-all">{feed['url'][:70]}{"…" if len(feed['url'])>70 else ""}</a>
+            <div style="font-size:13px;font-weight:600;color:#e2e8f0">{feed['name']}</div>
+            <div style="color:#475569;font-size:11px;word-break:break-all">{base}</div>
           </div>
           <span style="background:#14532d;color:#86efac;padding:2px 7px;border-radius:10px;
-                       font-size:11px;flex-shrink:0">RSS</span>
-        </div>"""
+                       font-size:11px;flex-shrink:0">RSS ↗</span>
+        </a>"""
 
     return f"""<!DOCTYPE html>
 <html lang="de">
