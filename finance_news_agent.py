@@ -79,7 +79,23 @@ RSS_FEEDS = [
 # ─────────────────────────────────────────────────────────────────────────────
 
 CUSTOM_URLS_FILE  = "custom_urls.txt"
+BLOCKLIST_FILE    = "blocklist.txt"
 GITHUB_REPO       = "tobiashobert/finance-news-agent"
+
+
+def load_blocklist() -> set[str]:
+    if not os.path.exists(BLOCKLIST_FILE):
+        return set()
+    with open(BLOCKLIST_FILE, encoding="utf-8") as f:
+        return {l.strip().lower().lstrip("www.") for l in f if l.strip() and not l.startswith("#")}
+
+
+def is_blocked(url: str, blocklist: set[str]) -> bool:
+    if not blocklist or not url:
+        return False
+    from urllib.parse import urlparse
+    host = urlparse(url).netloc.lower().lstrip("www.")
+    return any(host == b or host.endswith("." + b) for b in blocklist)
 
 
 def fetch_github_issues() -> list[dict]:
@@ -154,6 +170,7 @@ def fetch_all_feeds(max_age_hours: int) -> list[dict]:
     all_articles = []
     now = datetime.now(timezone.utc)
     headers = {"User-Agent": "FinanceNewsAgent/2.0 (Python/feedparser)"}
+    blocklist = load_blocklist()
 
     for source in RSS_FEEDS:
         try:
@@ -190,12 +207,16 @@ def fetch_all_feeds(max_age_hours: int) -> list[dict]:
             summary = re.sub(r"<[^>]+>", " ", summary)
             summary = re.sub(r"\s+", " ", summary).strip()[:300]
 
+            link = entry.get("link", "")
+            if is_blocked(link, blocklist):
+                continue
+
             all_articles.append({
                 "id":           str(uuid.uuid4())[:8],
                 "source":       source["name"],
                 "title":        title,
                 "summary":      summary,
-                "url":          entry.get("link", ""),
+                "url":          link,
                 "published_at": pub.isoformat() if pub else None,
             })
             count += 1

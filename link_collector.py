@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 import requests
 
 CUSTOM_URLS_FILE = "custom_urls.txt"
+BLOCKLIST_FILE   = "blocklist.txt"
 GITHUB_REPO      = "tobiashobert/finance-news-agent"
 PORT             = 8765
 
@@ -53,6 +54,30 @@ RSS_FEEDS = [
 
 
 # ── Datei-Hilfsfunktionen ─────────────────────────────────────────────────────
+
+def load_blocklist() -> list[str]:
+    if not os.path.exists(BLOCKLIST_FILE):
+        return []
+    with open(BLOCKLIST_FILE, encoding="utf-8") as f:
+        return [l.strip() for l in f if l.strip() and not l.startswith("#")]
+
+
+def save_blocked(domain: str) -> bool:
+    domain = domain.strip().lower().lstrip("www.").rstrip("/")
+    if not domain or "." not in domain:
+        return False
+    if domain in load_blocklist():
+        return False
+    with open(BLOCKLIST_FILE, "a", encoding="utf-8") as f:
+        f.write(domain + "\n")
+    return True
+
+
+def delete_blocked(domain: str):
+    entries = [e for e in load_blocklist() if e != domain]
+    with open(BLOCKLIST_FILE, "w", encoding="utf-8") as f:
+        f.write("\n".join(entries) + ("\n" if entries else ""))
+
 
 def load_custom_urls() -> list[str]:
     if not os.path.exists(CUSTOM_URLS_FILE):
@@ -108,9 +133,10 @@ def get_local_ip() -> str:
 # ── HTML ──────────────────────────────────────────────────────────────────────
 
 def render_page(message: str = "", message_type: str = "success") -> str:
-    custom_urls  = load_custom_urls()
+    custom_urls   = load_custom_urls()
     github_issues = load_github_issues()
-    url_pattern  = re.compile(r"https?://[^\s\)\]>\"']+")
+    blocklist     = load_blocklist()
+    url_pattern   = re.compile(r"https?://[^\s\)\]>\"']+")
 
     msg_html = ""
     if message:
@@ -189,6 +215,20 @@ def render_page(message: str = "", message_type: str = "success") -> str:
             </a>"""
         return rows
 
+    blocklist_rows = ""
+    for domain in blocklist:
+        blocklist_rows += f"""
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+                    background:#1e293b;border-radius:8px;margin-bottom:8px">
+          <div style="width:6px;height:6px;border-radius:50%;background:#ef4444;flex-shrink:0"></div>
+          <span style="flex:1;font-size:13px;color:#fca5a5">{domain}</span>
+          <form method="post" action="/unblock" style="margin:0">
+            <input type="hidden" name="domain" value="{domain}">
+            <button type="submit" style="background:#7f1d1d;color:#fca5a5;border:none;
+                    padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">✕ Freigeben</button>
+          </form>
+        </div>"""
+
     feeds_maerkte = [f for f in RSS_FEEDS if f.get("category") == "Märkte"]
     feeds_welt    = [f for f in RSS_FEEDS if f.get("category") == "Welt"]
     feed_rows_maerkte = feed_block(feeds_maerkte, "#22c55e", "#14532d", "#86efac")
@@ -263,6 +303,26 @@ def render_page(message: str = "", message_type: str = "success") -> str:
   </div>
   {feed_rows_welt}
 
+  <div class="section-title" style="margin-top:32px">
+    🚫 Ausgeschlossene Quellen
+    <span class="badge" style="background:#3b0f0f;color:#fca5a5">{len(blocklist)}</span>
+  </div>
+  <p style="color:#64748b;font-size:12px;margin-bottom:12px">
+    Meldungen von diesen Domains werden gefiltert — egal aus welchem Feed sie kommen.
+  </p>
+  <form method="post" action="/block" style="display:flex;gap:8px;margin-bottom:12px">
+    <input type="text" name="domain" placeholder="z.B. bild.de"
+           style="flex:1;padding:10px 12px;background:#1e293b;border:1px solid #334155;
+                  border-radius:8px;color:#e2e8f0;font-size:14px"
+           autocomplete="off" autocorrect="off" spellcheck="false">
+    <button type="submit"
+            style="padding:10px 16px;background:#7f1d1d;color:#fca5a5;border:none;
+                   border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">
+      + Ausschließen
+    </button>
+  </form>
+  {blocklist_rows if blocklist else '<div style="color:#475569;font-size:13px;padding:8px 0">Noch keine Domains ausgeschlossen.</div>'}
+
   <p style="color:#334155;font-size:11px;margin-top:28px;text-align:center">
     finance-news-agent · github.com/{GITHUB_REPO}
   </p>
@@ -288,6 +348,8 @@ class Handler(BaseHTTPRequestHandler):
         params = parse_qs(body)
         url    = params.get("url", [""])[0].strip()
 
+        domain = params.get("domain", [""])[0].strip().lower().lstrip("www.").rstrip("/")
+
         if self.path == "/add":
             if save_url(url):
                 msg, mtype = f"✓ Gespeichert: {url[:60]}", "success"
@@ -298,6 +360,16 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/delete":
             delete_custom_url(url)
             msg, mtype = "Gelöscht.", "success"
+        elif self.path == "/block":
+            if save_blocked(domain):
+                msg, mtype = f"🚫 Ausgeschlossen: {domain}", "success"
+            elif domain:
+                msg, mtype = f"{domain} ist bereits ausgeschlossen.", "error"
+            else:
+                msg, mtype = "Bitte eine Domain eingeben (z.B. bild.de).", "error"
+        elif self.path == "/unblock":
+            delete_blocked(domain)
+            msg, mtype = f"✓ Freigegeben: {domain}", "success"
         else:
             msg, mtype = "", "success"
 
