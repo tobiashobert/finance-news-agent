@@ -360,14 +360,41 @@ def build_html(output: dict) -> str:
     }
     sentiment_icon = {"positiv": "🟢", "negativ": "🔴", "neutral": "⚪"}
 
+    article_by_id = {a["id"]: a for a in articles}
+
     theme_cards = ""
-    for t in themes:
+    for ti, t in enumerate(themes):
         color = urgency_color.get(t["urgency"], "#6b7280")
+        # Artikel zu diesem Thema zusammensuchen
+        linked = [article_by_id[aid] for aid in t["article_ids"] if aid in article_by_id]
+        link_rows = ""
+        for la in linked:
+            a_color, a_label = action_badge.get(la.get("action_hint","ignore"), ("#6b7280","ignore"))
+            link_rows += f"""
+              <a href="{la['url']}" target="_blank"
+                 style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;
+                        background:#0f172a;border-radius:6px;text-decoration:none;
+                        margin-bottom:6px"
+                 onmouseover="this.style.background='#1a2744'"
+                 onmouseout="this.style.background='#0f172a'">
+                <span style="background:{a_color}22;color:{a_color};padding:1px 7px;
+                             border-radius:10px;font-size:11px;flex-shrink:0;margin-top:2px">{a_label}</span>
+                <div>
+                  <div style="color:#e2e8f0;font-size:13px;font-weight:500">{la['title']}</div>
+                  <div style="color:#475569;font-size:11px;margin-top:2px">{la['source']}</div>
+                </div>
+              </a>"""
+        links_html = f'<div id="theme-{ti}" style="display:none;margin-top:12px">{link_rows}</div>' if link_rows else ""
+        toggle = f"document.getElementById('theme-{ti}').style.display = document.getElementById('theme-{ti}').style.display==='none'?'block':'none'; this.textContent = this.textContent==='▼ Artikel anzeigen'?'▲ Schließen':'▼ Artikel anzeigen'" if link_rows else ""
+        btn = f'<button onclick="{toggle}" style="margin-top:8px;background:none;border:1px solid #334155;color:#94a3b8;padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer">▼ Artikel anzeigen</button>' if link_rows else ""
+
         theme_cards += f"""
         <div style="border-left:4px solid {color};padding:12px 16px;background:#1e293b;border-radius:6px">
           <div style="font-weight:600;font-size:15px">{t["theme"]}</div>
           <div style="color:#94a3b8;font-size:13px;margin-top:4px">{t["summary"]}</div>
           <div style="color:{color};font-size:12px;margin-top:6px">{t["urgency"].upper()} · {len(t["article_ids"])} Artikel</div>
+          {btn}
+          {links_html}
         </div>"""
 
     sorted_articles = sorted(articles, key=lambda x: -x.get("score", 0))
