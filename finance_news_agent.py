@@ -80,6 +80,7 @@ RSS_FEEDS = [
 
 CUSTOM_URLS_FILE  = "custom_urls.txt"
 BLOCKLIST_FILE    = "blocklist.txt"
+CUSTOM_FEEDS_FILE = "custom_feeds.json"
 GITHUB_REPO       = "tobiashobert/finance-news-agent"
 
 
@@ -166,13 +167,13 @@ def fetch_custom_urls() -> list[dict]:
     return articles
 
 
-def fetch_all_feeds(max_age_hours: int) -> list[dict]:
+def fetch_all_feeds(max_age_hours: int, extra_feeds: list = None) -> list[dict]:
     all_articles = []
     now = datetime.now(timezone.utc)
     headers = {"User-Agent": "FinanceNewsAgent/2.0 (Python/feedparser)"}
     blocklist = load_blocklist()
 
-    for source in RSS_FEEDS:
+    for source in RSS_FEEDS + (extra_feeds or []):
         try:
             resp = requests.get(source["url"], headers=headers, timeout=10)
             resp.raise_for_status()
@@ -581,8 +582,18 @@ def main():
     client = anthropic.Anthropic(api_key=API_KEY) if not args.dry_run else None
     period_from = datetime.now(timezone.utc).isoformat()
 
-    print(f"\n🔄  Lese {len(RSS_FEEDS)} RSS-Feeds …")
-    articles = fetch_all_feeds(args.max_age)
+    # Eigene Feeds aus custom_feeds.json laden
+    extra_feeds = []
+    if os.path.exists(CUSTOM_FEEDS_FILE):
+        with open(CUSTOM_FEEDS_FILE, encoding="utf-8") as f:
+            cf = json.load(f)
+        for cat, feeds in cf.items():
+            for feed in feeds:
+                extra_feeds.append({**feed, "category": cat})
+
+    all_feeds = RSS_FEEDS + extra_feeds
+    print(f"\n🔄  Lese {len(all_feeds)} RSS-Feeds …")
+    articles = fetch_all_feeds(args.max_age, extra_feeds=extra_feeds)
     custom = fetch_custom_urls()
     if custom:
         print(f"  ✚  {len(custom)} eigene Links aus {CUSTOM_URLS_FILE}")
