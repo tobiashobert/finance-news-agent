@@ -124,6 +124,60 @@ def delete_watchlist_entry(ticker):
     entries = [e for e in load_watchlist() if e["ticker"] != ticker]
     save_watchlist(entries)
 
+def discover_rss_feeds(site_url: str) -> list[dict]:
+    """Sucht RSS/Atom-Feeds einer Website: erst im HTML, dann via gängige Pfade."""
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    found = []
+    seen  = set()
+
+    parsed = urlparse(site_url)
+    base   = f"{parsed.scheme}://{parsed.netloc}"
+
+    # 1) HTML der Startseite nach <link rel="alternate"> durchsuchen
+    try:
+        resp = requests.get(site_url, headers=headers, timeout=8)
+        html = resp.text
+        for m in re.finditer(
+            r'<link[^>]+type=["\']application/(rss|atom)\+xml["\'][^>]*>',
+            html, re.IGNORECASE
+        ):
+            href = re.search(r'href=["\']([^"\']+)["\']', m.group(0))
+            title = re.search(r'title=["\']([^"\']+)["\']', m.group(0))
+            if href:
+                url = href.group(1)
+                if url.startswith("/"):
+                    url = base + url
+                if url not in seen:
+                    seen.add(url)
+                    found.append({"name": title.group(1) if title else "Feed", "url": url})
+    except Exception:
+        pass
+
+    # 2) Gängige Feed-Pfade ausprobieren
+    candidates = [
+        "/rss", "/rss.xml", "/feed", "/feed.xml", "/feeds/rss.xml",
+        "/rss/news", "/rss/aktuell", "/index.rss", "/news.rss",
+        "/rss2.xml", "/atom.xml", "/feeds/posts/default",
+    ]
+    for path in candidates:
+        url = base + path
+        if url in seen:
+            continue
+        try:
+            r = requests.get(url, headers=headers, timeout=5)
+            ct = r.headers.get("Content-Type", "")
+            if r.status_code == 200 and ("xml" in ct or "rss" in ct or r.text.strip().startswith("<")):
+                import feedparser
+                feed = feedparser.parse(r.content)
+                if feed.entries:
+                    seen.add(url)
+                    found.append({"name": feed.feed.get("title", path), "url": url})
+        except Exception:
+            pass
+
+    return found
+
+
 def load_github_issues():
     token = os.environ.get("GITHUB_TOKEN", "")
     headers = {"Accept": "application/vnd.github+json"}
@@ -236,16 +290,21 @@ def render_page(message="", message_type="success"):
               <span style="background:{badge_bg};color:{badge_col};padding:2px 7px;border-radius:10px;font-size:11px;flex-shrink:0">RSS ↗</span>
               {delete_btn}
             </div>"""
-        # Formular zum Hinzufügen
+        # Formular: Hauptseiten-URL eingeben → Feed suchen
         rows += f"""
-        <form method="post" action="/add_feed" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <input type="hidden" name="category" value="{category}">
-          <input type="text" name="feed_name" placeholder="Name (z.B. Reuters DE)"
-                 style="flex:1;min-width:120px;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px">
-          <input type="url" name="feed_url" placeholder="RSS-URL"
-                 style="flex:2;min-width:200px;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px">
-          <button type="submit" style="padding:8px 14px;background:#1e3a5f;color:#93c5fd;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">+ Feed</button>
-        </form>"""
+        <div style="margin-top:12px;padding:12px 14px;background:#0f172a;border-radius:8px;border:1px dashed #334155">
+          <div style="font-size:12px;color:#64748b;margin-bottom:8px">RSS-Feed hinzufügen</div>
+          <form method="post" action="/discover_feed" style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="hidden" name="category" value="{category}">
+            <input type="url" name="site_url" placeholder="Hauptseite der Website (z.B. https://www.reuters.com)"
+                   style="flex:1;min-width:200px;padding:8px 12px;background:#1e293b;border:1px solid #334155;
+                          border-radius:8px;color:#e2e8f0;font-size:13px" autocomplete="off">
+            <button type="submit" style="padding:8px 14px;background:#1e3a5f;color:#93c5fd;border:none;
+                    border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">
+              🔍 Feeds suchen
+            </button>
+          </form>
+        </div>"""
         return f"""
         <div class="section-title">{icon} {category} — regelmäßige Bewertung
           <span class="badge" style="background:{badge_bg};color:{badge_col}">{len(all_feeds)}</span>
@@ -432,6 +491,35 @@ class Handler(BaseHTTPRequestHandler):
             msg, mt = (f"🚫 Ausgeschlossen: {domain}", "success") if save_blocked(domain) else (f"{domain} bereits vorhanden oder ungültig.", "error")
         elif self.path == "/unblock":
             delete_blocked(domain); msg, mt = f"✓ Freigegeben: {domain}", "success"
+        elif self.path == "/discover_feed":
+            site_url = get("site_url")
+            feeds_found = discover_rss_feeds(site_url) if site_url else []
+            if feeds_found:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                options = "".join(f"""
+                <div style="background:#1e293b;border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+                  <div style="flex:1">
+                    <div style="font-size:13px;font-weight:600">{f['name']}</div>
+                    <div style="font-size:11px;color:#475569;word-break:break-all">{f['url']}</div>
+                  </div>
+                  <form method="post" action="/add_feed" style="margin:0">
+                    <input type="hidden" name="category" value="{category}">
+                    <input type="hidden" name="feed_name" value="{f['name']}">
+                    <input type="hidden" name="feed_url"  value="{f['url']}">
+                    <button type="submit" style="background:#14532d;color:#86efac;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">+ Hinzufügen</button>
+                  </form>
+                </div>""" for f in feeds_found)
+                page = render_page(f"🔍 {len(feeds_found)} Feed(s) gefunden für {site_url} — wähle einen aus:", "success")
+                # Ergebnisse nach der Nachricht einblenden
+                inject = f"""<div style="margin-bottom:20px">{options}</div>"""
+                page = page.replace(f"🔍 {len(feeds_found)} Feed(s) gefunden für {site_url} — wähle einen aus:</div>",
+                                    f"🔍 {len(feeds_found)} Feed(s) gefunden für {site_url} — wähle einen aus:</div>{inject}")
+                self.wfile.write(page.encode("utf-8"))
+                return
+            else:
+                msg, mt = f"Kein RSS-Feed gefunden für {site_url}. Bitte direkte Feed-URL eingeben.", "error"
         elif self.path == "/add_feed":
             name, url2 = get("feed_name"), get("feed_url")
             msg, mt = (f"✓ Feed hinzugefügt: {name}", "success") if save_custom_feed(name, url2, category) else ("Feed bereits vorhanden oder Felder fehlen.", "error")
