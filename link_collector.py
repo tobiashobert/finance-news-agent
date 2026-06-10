@@ -272,7 +272,7 @@ def render_page(message="", message_type="success"):
 
     # ── Watchlist ─────────────────────────────────────────────────────────────
     watchlist_rows = ""
-    for entry in watchlist:
+    for idx, entry in enumerate(watchlist):
         price, change = fetch_price(entry["ticker"])
         if price is not None:
             price_str  = f"{price:,.2f}"
@@ -281,7 +281,8 @@ def render_page(message="", message_type="success"):
         else:
             price_str  = "–"
             change_str = '<span style="color:#64748b">–</span>'
-        fn_url = entry.get("finanzen_url") or f"https://www.finanzen.net/suche/{entry['name'].replace(' ','+')}"
+        fn_url  = entry.get("finanzen_url","")
+        edit_id = f"edit-{idx}"
         watchlist_rows += f"""
         <div style="background:#1e293b;border-radius:8px;padding:12px 14px;margin-bottom:8px">
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -297,9 +298,21 @@ def render_page(message="", message_type="success"):
                style="background:#1e3a5f;color:#93c5fd;padding:6px 12px;border-radius:8px;font-size:12px;text-decoration:none;white-space:nowrap">
               📊 finanzen.net ↗
             </a>
+            <button onclick="document.getElementById('{edit_id}').style.display=document.getElementById('{edit_id}').style.display==='none'?'block':'none'"
+                    style="background:#1e3a2f;color:#86efac;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px">✏ Edit</button>
             <form method="post" action="/delete_watchlist" style="margin:0">
               <input type="hidden" name="ticker" value="{entry['ticker']}">
               <button type="submit" style="background:#7f1d1d;color:#fca5a5;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px">✕</button>
+            </form>
+          </div>
+          <div id="{edit_id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #334155">
+            <form method="post" action="/edit_watchlist" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <input type="hidden" name="original_ticker" value="{entry['ticker']}">
+              <input type="text" name="w_name"       value="{entry['name']}"       placeholder="Name" style="padding:8px 10px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:13px">
+              <input type="text" name="w_identifier" value="{entry['identifier']}" placeholder="WKN / ISIN" style="padding:8px 10px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:13px">
+              <input type="text" name="w_ticker"     value="{entry['ticker']}"     placeholder="Yahoo Ticker" style="padding:8px 10px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:13px">
+              <input type="url"  name="w_finanzen"   value="{fn_url}"              placeholder="finanzen.net URL" style="padding:8px 10px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:13px">
+              <button type="submit" style="grid-column:1/-1;padding:9px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">💾 Speichern</button>
             </form>
           </div>
         </div>"""
@@ -427,6 +440,17 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/add_watchlist":
             ok = add_watchlist_entry(get("w_name"), get("w_identifier"), get("w_ticker"), get("w_finanzen"))
             msg, mt = (f"✓ {get('w_name')} zur Watchlist hinzugefügt.", "success") if ok else ("Ticker bereits vorhanden.", "error")
+        elif self.path == "/edit_watchlist":
+            orig = get("original_ticker")
+            entries = load_watchlist()
+            for e in entries:
+                if e["ticker"] == orig:
+                    e["name"]        = get("w_name") or e["name"]
+                    e["identifier"]  = get("w_identifier")
+                    e["ticker"]      = get("w_ticker") or orig
+                    e["finanzen_url"]= get("w_finanzen")
+            save_watchlist(entries)
+            msg, mt = f"✓ {get('w_name')} aktualisiert.", "success"
         elif self.path == "/delete_watchlist":
             delete_watchlist_entry(get("ticker")); msg, mt = "Aus Watchlist entfernt.", "success"
         else:
