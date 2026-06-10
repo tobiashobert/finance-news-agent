@@ -47,16 +47,30 @@ RELEVANCE_THRESHOLD = 6
 SCORE_BATCH_SIZE   = 40
 
 RSS_FEEDS = [
-    {"name": "Google News Finanzen",  "url": "https://news.google.com/rss/search?q=finanzen+aktien+börse&hl=de&gl=DE&ceid=DE:de"},
-    {"name": "Google News Wirtschaft","url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtUmxHZ0pFUlNnQVAB?hl=de&gl=DE&ceid=DE:de"},
-    {"name": "FAZ Wirtschaft",     "url": "https://www.faz.net/rss/aktuell/wirtschaft/"},
-    {"name": "FAZ Finanzen",       "url": "https://www.faz.net/rss/aktuell/finanzen/"},
-    {"name": "WirtschaftsWoche",   "url": "https://www.wiwo.de/contentexport/feed/rss/schlagzeilen"},
-    {"name": "NZZ Wirtschaft",     "url": "https://www.nzz.ch/wirtschaft.rss"},
-    {"name": "NZZ Finanzen",       "url": "https://www.nzz.ch/finanzen.rss"},
-    {"name": "WELT Wirtschaft",    "url": "https://www.welt.de/feeds/section/wirtschaft.rss"},
-    {"name": "RND Wirtschaft",     "url": "https://www.rnd.de/arc/outboundfeeds/rss/category/wirtschaft/"},
-    {"name": "RND Geld & Finanzen","url": "https://www.rnd.de/arc/outboundfeeds/rss/category/geld-und-finanzen/"},
+    # ── Finanzen & Märkte ──────────────────────────────────────────────────────
+    {"name": "Google News Finanzen",    "url": "https://news.google.com/rss/search?q=finanzen+aktien+börse&hl=de&gl=DE&ceid=DE:de",          "category": "Märkte"},
+    {"name": "Google News Wirtschaft",  "url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtUmxHZ0pFUlNnQVAB?hl=de&gl=DE&ceid=DE:de", "category": "Märkte"},
+    {"name": "FAZ Wirtschaft",          "url": "https://www.faz.net/rss/aktuell/wirtschaft/",                                                  "category": "Märkte"},
+    {"name": "FAZ Finanzen",            "url": "https://www.faz.net/rss/aktuell/finanzen/",                                                    "category": "Märkte"},
+    {"name": "WirtschaftsWoche",        "url": "https://www.wiwo.de/contentexport/feed/rss/schlagzeilen",                                      "category": "Märkte"},
+    {"name": "Handelsblatt",            "url": "https://www.handelsblatt.com/contentexport/feed/schlagzeilen",                                 "category": "Märkte"},
+    {"name": "NZZ Wirtschaft",          "url": "https://www.nzz.ch/wirtschaft.rss",                                                           "category": "Märkte"},
+    {"name": "NZZ Finanzen",            "url": "https://www.nzz.ch/finanzen.rss",                                                             "category": "Märkte"},
+    {"name": "WELT Wirtschaft",         "url": "https://www.welt.de/feeds/section/wirtschaft.rss",                                            "category": "Märkte"},
+    {"name": "RND Wirtschaft",          "url": "https://www.rnd.de/arc/outboundfeeds/rss/category/wirtschaft/",                               "category": "Märkte"},
+    {"name": "RND Geld & Finanzen",     "url": "https://www.rnd.de/arc/outboundfeeds/rss/category/geld-und-finanzen/",                        "category": "Märkte"},
+    # ── Weltnachrichten & Geopolitik ──────────────────────────────────────────
+    {"name": "Tagesschau",              "url": "https://www.tagesschau.de/xml/rss2/",                                                         "category": "Welt"},
+    {"name": "Spiegel Wirtschaft",      "url": "https://www.spiegel.de/wirtschaft/index.rss",                                                 "category": "Welt"},
+    {"name": "Spiegel Politik",         "url": "https://www.spiegel.de/politik/index.rss",                                                    "category": "Welt"},
+    {"name": "Zeit Wirtschaft",         "url": "https://newsfeed.zeit.de/wirtschaft/index",                                                   "category": "Welt"},
+    {"name": "Zeit Politik",            "url": "https://newsfeed.zeit.de/politik/index",                                                      "category": "Welt"},
+    {"name": "BBC Business",            "url": "https://feeds.bbci.co.uk/news/business/rss.xml",                                              "category": "Welt"},
+    {"name": "BBC World",               "url": "https://feeds.bbci.co.uk/news/world/rss.xml",                                                 "category": "Welt"},
+    {"name": "Google News Geopolitik",  "url": "https://news.google.com/rss/search?q=geopolitik+krieg+sanktionen&hl=de&gl=DE&ceid=DE:de",     "category": "Welt"},
+    {"name": "Google News Rohstoffe",   "url": "https://news.google.com/rss/search?q=öl+gold+rohstoffe+preise&hl=de&gl=DE&ceid=DE:de",       "category": "Welt"},
+    {"name": "Google News USA/Fed",     "url": "https://news.google.com/rss/search?q=fed+zinsen+usa+wirtschaft&hl=de&gl=DE&ceid=DE:de",       "category": "Welt"},
+    {"name": "Google News China",       "url": "https://news.google.com/rss/search?q=china+wirtschaft+export&hl=de&gl=DE&ceid=DE:de",        "category": "Welt"},
 ]
 
 

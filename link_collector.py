@@ -27,16 +27,28 @@ GITHUB_REPO      = "tobiashobert/finance-news-agent"
 PORT             = 8765
 
 RSS_FEEDS = [
-    {"name": "Google News Finanzen",   "url": "https://news.google.com/rss/search?q=finanzen+aktien+börse&hl=de&gl=DE&ceid=DE:de"},
-    {"name": "Google News Wirtschaft", "url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtUmxHZ0pFUlNnQVAB?hl=de&gl=DE&ceid=DE:de"},
-    {"name": "FAZ Wirtschaft",         "url": "https://www.faz.net/rss/aktuell/wirtschaft/"},
-    {"name": "FAZ Finanzen",           "url": "https://www.faz.net/rss/aktuell/finanzen/"},
-    {"name": "WirtschaftsWoche",       "url": "https://www.wiwo.de/contentexport/feed/rss/schlagzeilen"},
-    {"name": "NZZ Wirtschaft",         "url": "https://www.nzz.ch/wirtschaft.rss"},
-    {"name": "NZZ Finanzen",           "url": "https://www.nzz.ch/finanzen.rss"},
-    {"name": "WELT Wirtschaft",        "url": "https://www.welt.de/feeds/section/wirtschaft.rss"},
-    {"name": "RND Wirtschaft",         "url": "https://www.rnd.de/arc/outboundfeeds/rss/category/wirtschaft/"},
-    {"name": "RND Geld & Finanzen",    "url": "https://www.rnd.de/arc/outboundfeeds/rss/category/geld-und-finanzen/"},
+    {"name": "Google News Finanzen",    "url": "https://news.google.com/rss/search?q=finanzen+aktien+börse&hl=de&gl=DE&ceid=DE:de",          "category": "Märkte"},
+    {"name": "Google News Wirtschaft",  "url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtUmxHZ0pFUlNnQVAB?hl=de&gl=DE&ceid=DE:de", "category": "Märkte"},
+    {"name": "FAZ Wirtschaft",          "url": "https://www.faz.net/rss/aktuell/wirtschaft/",                                                  "category": "Märkte"},
+    {"name": "FAZ Finanzen",            "url": "https://www.faz.net/rss/aktuell/finanzen/",                                                    "category": "Märkte"},
+    {"name": "WirtschaftsWoche",        "url": "https://www.handelsblatt.com/contentexport/feed/schlagzeilen",                                 "category": "Märkte"},
+    {"name": "Handelsblatt",            "url": "https://www.handelsblatt.com/contentexport/feed/schlagzeilen",                                 "category": "Märkte"},
+    {"name": "NZZ Wirtschaft",          "url": "https://www.nzz.ch/wirtschaft.rss",                                                           "category": "Märkte"},
+    {"name": "NZZ Finanzen",            "url": "https://www.nzz.ch/finanzen.rss",                                                             "category": "Märkte"},
+    {"name": "WELT Wirtschaft",         "url": "https://www.welt.de/feeds/section/wirtschaft.rss",                                            "category": "Märkte"},
+    {"name": "RND Wirtschaft",          "url": "https://www.rnd.de/arc/outboundfeeds/rss/category/wirtschaft/",                               "category": "Märkte"},
+    {"name": "RND Geld & Finanzen",     "url": "https://www.rnd.de/arc/outboundfeeds/rss/category/geld-und-finanzen/",                        "category": "Märkte"},
+    {"name": "Tagesschau",              "url": "https://www.tagesschau.de/xml/rss2/",                                                         "category": "Welt"},
+    {"name": "Spiegel Wirtschaft",      "url": "https://www.spiegel.de/wirtschaft/index.rss",                                                 "category": "Welt"},
+    {"name": "Spiegel Politik",         "url": "https://www.spiegel.de/politik/index.rss",                                                    "category": "Welt"},
+    {"name": "Zeit Wirtschaft",         "url": "https://newsfeed.zeit.de/wirtschaft/index",                                                   "category": "Welt"},
+    {"name": "Zeit Politik",            "url": "https://newsfeed.zeit.de/politik/index",                                                      "category": "Welt"},
+    {"name": "BBC Business",            "url": "https://feeds.bbci.co.uk/news/business/rss.xml",                                              "category": "Welt"},
+    {"name": "BBC World",               "url": "https://feeds.bbci.co.uk/news/world/rss.xml",                                                 "category": "Welt"},
+    {"name": "Google News Geopolitik",  "url": "https://news.google.com/rss/search?q=geopolitik+krieg+sanktionen&hl=de&gl=DE&ceid=DE:de",     "category": "Welt"},
+    {"name": "Google News Rohstoffe",   "url": "https://news.google.com/rss/search?q=öl+gold+rohstoffe+preise&hl=de&gl=DE&ceid=DE:de",       "category": "Welt"},
+    {"name": "Google News USA/Fed",     "url": "https://news.google.com/rss/search?q=fed+zinsen+usa+wirtschaft&hl=de&gl=DE&ceid=DE:de",       "category": "Welt"},
+    {"name": "Google News China",       "url": "https://news.google.com/rss/search?q=china+wirtschaft+export&hl=de&gl=DE&ceid=DE:de",        "category": "Welt"},
 ]
 
 
@@ -154,25 +166,33 @@ def render_page(message: str = "", message_type: str = "success") -> str:
     if not einzeln_rows:
         einzeln_rows = '<div style="color:#475569;font-size:13px;padding:10px 0">Noch keine Einzelmeldungen.</div>'
 
-    # ── Liste 2: RSS News-Seiten ───────────────────────────────────────────────
-    feed_rows = ""
-    for feed in RSS_FEEDS:
-        from urllib.parse import urlparse as _up
-        base = "{u.scheme}://{u.netloc}".format(u=_up(feed['url']))
-        feed_rows += f"""
-        <a href="{base}" target="_blank" style="text-decoration:none;display:block;
-                    padding:10px 14px;background:#1e293b;border-radius:8px;
-                    margin-bottom:8px;display:flex;align-items:center;gap:10px;
-                    transition:background .15s" onmouseover="this.style.background='#263548'"
-                    onmouseout="this.style.background='#1e293b'">
-          <div style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:600;color:#e2e8f0">{feed['name']}</div>
-            <div style="color:#475569;font-size:11px;word-break:break-all">{base}</div>
-          </div>
-          <span style="background:#14532d;color:#86efac;padding:2px 7px;border-radius:10px;
-                       font-size:11px;flex-shrink:0">RSS ↗</span>
-        </a>"""
+    # ── Liste 2: RSS News-Seiten nach Kategorie ───────────────────────────────
+    from urllib.parse import urlparse as _up
+
+    def feed_block(feeds_subset, dot_color, badge_bg, badge_color):
+        rows = ""
+        for feed in feeds_subset:
+            base = "{u.scheme}://{u.netloc}".format(u=_up(feed['url']))
+            rows += f"""
+            <a href="{base}" target="_blank" style="text-decoration:none;
+                        padding:10px 14px;background:#1e293b;border-radius:8px;
+                        margin-bottom:8px;display:flex;align-items:center;gap:10px"
+               onmouseover="this.style.background='#263548'"
+               onmouseout="this.style.background='#1e293b'">
+              <div style="width:6px;height:6px;border-radius:50%;background:{dot_color};flex-shrink:0"></div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:#e2e8f0">{feed['name']}</div>
+                <div style="color:#475569;font-size:11px">{base}</div>
+              </div>
+              <span style="background:{badge_bg};color:{badge_color};padding:2px 7px;
+                           border-radius:10px;font-size:11px;flex-shrink:0">RSS ↗</span>
+            </a>"""
+        return rows
+
+    feeds_maerkte = [f for f in RSS_FEEDS if f.get("category") == "Märkte"]
+    feeds_welt    = [f for f in RSS_FEEDS if f.get("category") == "Welt"]
+    feed_rows_maerkte = feed_block(feeds_maerkte, "#22c55e", "#14532d", "#86efac")
+    feed_rows_welt    = feed_block(feeds_welt,    "#f59e0b", "#451a03", "#fcd34d")
 
     return f"""<!DOCTYPE html>
 <html lang="de">
@@ -232,10 +252,16 @@ def render_page(message: str = "", message_type: str = "success") -> str:
   {einzeln_rows}
 
   <div class="section-title">
-    📡 News-Seiten — regelmäßige Bewertung
-    <span class="badge" style="background:#14532d;color:#86efac">{len(RSS_FEEDS)}</span>
+    📈 Finanzen & Märkte — regelmäßige Bewertung
+    <span class="badge" style="background:#14532d;color:#86efac">{len(feeds_maerkte)}</span>
   </div>
-  {feed_rows}
+  {feed_rows_maerkte}
+
+  <div class="section-title">
+    🌍 Weltnachrichten & Geopolitik — regelmäßige Bewertung
+    <span class="badge" style="background:#451a03;color:#fcd34d">{len(feeds_welt)}</span>
+  </div>
+  {feed_rows_welt}
 
   <p style="color:#334155;font-size:11px;margin-top:28px;text-align:center">
     finance-news-agent · github.com/{GITHUB_REPO}
